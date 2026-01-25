@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Defensor Matemático: Evolución</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+        :root {
+            --sat: env(safe-area-inset-top);
+            --sar: env(safe-area-inset-right);
+            --sab: env(safe-area-inset-bottom);
+            --sal: env(safe-area-inset-left);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050510;
+            color: white;
+            font-family: 'Orbitron', sans-serif;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        canvas {
+            background: radial-gradient(circle at center, #0a0a1a 0%, #000000 100%);
+            display: block;
+        }
+
+        /* UI Layers */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: var(--sat) var(--sar) 0 var(--sal);
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 15px 20px;
+            font-size: clamp(0.8rem, 3vw, 1.1rem);
+            text-shadow: 0 0 10px #00ffff;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            z-index: 20;
+        }
+
+        .operation-type {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00ffcc;
+            font-size: clamp(0.6rem, 2.5vw, 0.9rem);
+            letter-spacing: 2px;
+            text-align: center;
+            width: 100%;
+        }
+
+        .question-display {
+            position: absolute;
+            top: 18%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: clamp(2.5rem, 12vw, 4.5rem);
+            font-weight: bold;
+            color: #fffb00;
+            text-shadow: 0 0 25px rgba(255, 251, 0, 0.6);
+            animation: pulse 1.5s infinite;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Screens */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+            text-align: center;
+            padding: 30px;
+        }
+
+        .hidden { display: none !important; }
+
+        .btn {
+            background: linear-gradient(90deg, #00ffff, #0088ff);
+            border: none;
+            padding: 18px 30px;
+            font-size: clamp(1rem, 4vw, 1.2rem);
+            color: white;
+            font-family: 'Orbitron', sans-serif;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+            text-transform: uppercase;
+            margin-top: 15px;
+            min-width: 240px;
+            touch-action: manipulation;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(90deg, #444, #222);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+
+        /* Mobile Controls Elevated */
+        .mobile-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            width: 100%;
+            /* Aumentamos el padding inferior considerablemente para tablets */
+            padding: 20px 30px calc(8vh + var(--sab)) 30px; 
+            pointer-events: auto;
+        }
+
+        .control-group {
+            display: flex;
+            gap: clamp(10px, 4vw, 25px);
+        }
+
+        .control-btn {
+            width: clamp(75px, 16vw, 100px);
+            height: clamp(75px, 16vw, 100px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(0, 255, 255, 0.5);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.2rem;
+            color: #00ffff;
+            user-select: none;
+            backdrop-filter: blur(5px);
+            touch-action: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .fire-btn {
+            width: clamp(85px, 20vw, 120px);
+            height: clamp(85px, 20vw, 120px);
+            background: rgba(255, 0, 0, 0.2);
+            border-color: #ff4444;
+            color: #ff4444;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .control-btn:active {
+            background: rgba(0, 255, 255, 0.4);
+            transform: scale(0.85);
+            border-color: #fff;
+        }
+
+        .fire-btn:active {
+            background: rgba(255, 51, 51, 0.5);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.08); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="ui-layer">
+        <div class="hud-top">
+            <div id="scoreDisplay">Puntos: 0</div>
+            <div id="levelDisplay">Nivel: 1</div>
+            <div id="livesDisplay">Vidas: ❤️❤️❤️</div>
+        </div>
+        
+        <div id="operationLabel" class="operation-type">MODO: SUMAS</div>
+
+        <div class="mobile-controls">
+            <div class="control-group">
+                <div class="control-btn" id="btnLeft">←</div>
+                <div class="control-btn" id="btnRight">→</div>
+            </div>
+            <div class="control-btn fire-btn" id="btnFire">FUEGO</div>
+        </div>
+    </div>
+
+    <div id="questionDisplay" class="question-display hidden"></div>
+
+    <!-- Pantallas de Estado -->
+    <div id="startScreen" class="screen">
+        <h1 class="text-3xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-600">DEFENSOR MATEMÁTICO</h1>
+        <p class="max-w-md text-gray-300 text-sm md:text-base mb-4">¡Protege la galaxia resolviendo operaciones!<br><br>Nivel 1: Sumas | Nivel 2: Restas<br>Nivel 3+: Multiplicaciones</p>
+        <button class="btn" id="mainStartBtn">Iniciar Misión</button>
+    </div>
+
+    <div id="gameOverScreen" class="screen hidden">
+        <h1 class="text-4xl font-bold text-red-500 mb-2">MISIÓN FALLIDA</h1>
+        <p id="gameOverLevel" class="text-cyan-400 text-lg mb-2">Nivel 1</p>
+        <p id="finalScore" class="text-xl mb-6">Puntaje: 0</p>
+        <div class="flex flex-col gap-2">
+            <button class="btn" id="retryLevelBtn">Reintentar Nivel</button>
+            <button class="btn btn-secondary" id="newGameBtn">Juego Nuevo</button>
+        </div>
+    </div>
+
+    <div id="levelUpScreen" class="screen hidden">
+        <h1 class="text-3xl md:text-4xl font-bold text-green-400 mb-4">¡NIVEL SUPERADO!</h1>
+        <p id="levelUpDesc" class="text-lg text-gray-300 mb-6">Siguiente fase desbloqueada.</p>
+        <button class="btn" id="continueBtn">Continuar</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let gameLoopId = null;
+    let score = 0;
+    let checkpointScore = 0;
+    let level = 1;
+    let lives = 3;
+    let isGameOver = false;
+    let isPaused = false;
+    
+    let currentQuestion = { text: '', ans: 0 };
+    let player = { x: 0, y: 0, width: 40, height: 40, speed: 9 };
+    let bullets = [];
+    let enemies = [];
+    let powerUps = [];
+    let particles = [];
+    let stars = [];
+
+    const keys = { ArrowLeft: false, ArrowRight: false, Space: false };
+    let audioCtx;
+
+    function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playSound(freq, type = 'sine', duration = 0.1, vol = 0.05) {
+        if (!audioCtx || isPaused) return;
+        try {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        } catch(e) {}
+    }
+
+    /**
+     * ADAPTABILIDAD DE PANTALLA MEJORADA
+     */
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        // Ajustamos la posición de la nave para que esté por encima de los botones elevados
+        // En tablets el alto suele ser mayor, por lo que subimos la base de la nave.
+        const marginBase = window.innerHeight * 0.28; 
+        player.y = canvas.height - Math.max(marginBase, 220);
+        
+        if (player.x === 0 || player.x > canvas.width) player.x = canvas.width / 2;
+    }
+    window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', () => setTimeout(resize, 250));
+    resize();
+
+    function initStars() {
+        stars = [];
+        for(let i=0; i<100; i++) {
+            stars.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, s: Math.random()*2, v: Math.random()*2+0.5 });
+        }
+    }
+    initStars();
+
+    function generateQuestion() {
+        let a, b, ans, text, label;
+        if (level === 1) {
+            label = "MODO: SUMAS";
+            a = Math.floor(Math.random() * 10) + 1;
+            b = Math.floor(Math.random() * 10) + 1;
+            ans = a + b;
+            text = `${a} + ${b}`;
+        } else if (level === 2) {
+            label = "MODO: RESTAS";
+            a = Math.floor(Math.random() * 15) + 5;
+            b = Math.floor(Math.random() * a) + 1;
+            ans = a - b;
+            text = `${a} - ${b}`;
+        } else {
+            label = "MODO: TABLAS";
+            let maxTable = Math.min(level + 1, 12);
+            a = Math.floor(Math.random() * (maxTable - 2 + 1)) + 2;
+            b = Math.floor(Math.random() * 10) + 1;
+            ans = a * b;
+            text = `${a} × ${b}`;
+        }
+
+        currentQuestion = { text: text + " = ?", ans: ans };
+        document.getElementById('operationLabel').innerText = label;
+        const qDisplay = document.getElementById('questionDisplay');
+        qDisplay.innerText = currentQuestion.text;
+        qDisplay.classList.remove('hidden');
+
+        spawnEnemies();
+        if (Math.random() < 0.15) spawnPowerUp();
+    }
+
+    function spawnEnemies() {
+        enemies = [];
+        const correctPos = Math.floor(Math.random() * 3);
+        const offsets = [0.22, 0.5, 0.78];
+
+        for(let i=0; i<3; i++) {
+            let val;
+            if (i === correctPos) val = currentQuestion.ans;
+            else {
+                do {
+                    val = currentQuestion.ans + (Math.floor(Math.random() * 12) - 6);
+                } while (val === currentQuestion.ans || val < 0 || enemies.some(e => e.val === val));
+            }
+
+            enemies.push({
+                x: canvas.width * offsets[i],
+                y: -60,
+                r: Math.min(canvas.width * 0.09, 50),
+                val: val,
+                isCorrect: (i === correctPos),
+                v: 1.1 + (level * 0.28)
+            });
+        }
+    }
+
+    function spawnPowerUp() {
+        powerUps.push({ x: Math.random() * (canvas.width - 100) + 50, y: -50, r: 25, v: 2.2 });
+    }
+
+    // Controles
+    window.addEventListener('keydown', e => { 
+        if(e.code==='ArrowLeft' || e.code==='KeyA') keys.ArrowLeft=true; 
+        if(e.code==='ArrowRight' || e.code==='KeyD') keys.ArrowRight=true; 
+        if(e.code==='Space') { if(!keys.Space) fire(); keys.Space=true; } 
+    });
+    window.addEventListener('keyup', e => { 
+        if(e.code==='ArrowLeft' || e.code==='KeyA') keys.ArrowLeft=false; 
+        if(e.code==='ArrowRight' || e.code==='KeyD') keys.ArrowRight=false; 
+        if(e.code==='Space') keys.Space=false; 
+    });
+
+    function setupControl(id, key) {
+        const el = document.getElementById(id);
+        const startEvent = (e) => { e.preventDefault(); keys[key] = true; if(key === 'Space') fire(); };
+        const endEvent = (e) => { e.preventDefault(); keys[key] = false; };
+        el.addEventListener('touchstart', startEvent, {passive: false});
+        el.addEventListener('touchend', endEvent, {passive: false});
+        el.addEventListener('mousedown', startEvent);
+        el.addEventListener('mouseup', endEvent);
+        el.addEventListener('mouseleave', endEvent);
+    }
+    setupControl('btnLeft', 'ArrowLeft');
+    setupControl('btnRight', 'ArrowRight');
+    setupControl('btnFire', 'Space');
+
+    function fire() {
+        if(isGameOver || isPaused) return;
+        playSound(550, 'square', 0.07, 0.04);
+        bullets.push({ x: player.x, y: player.y - 25, v: 16 });
+    }
+
+    function update() {
+        if(isGameOver || isPaused) return;
+
+        const moveAmount = keys.ArrowLeft ? -player.speed : (keys.ArrowRight ? player.speed : 0);
+        player.x += moveAmount;
+        player.x = Math.max(30, Math.min(canvas.width - 30, player.x));
+
+        for(let s of stars) { s.y += s.v; if(s.y > canvas.height) s.y = -5; }
+
+        for(let i = bullets.length - 1; i >= 0; i--) {
+            bullets[i].y -= bullets[i].v; 
+            if(bullets[i].y < -20) bullets.splice(i, 1); 
+        }
+
+        for(let ei = enemies.length - 1; ei >= 0; ei--) {
+            let e = enemies[ei];
+            e.y += e.v;
+            
+            let roundEnded = false;
+            for(let bi = bullets.length - 1; bi >= 0; bi--) {
+                let b = bullets[bi];
+                if(Math.hypot(e.x - b.x, e.y - b.y) < e.r + 8) {
+                    bullets.splice(bi, 1);
+                    if(e.isCorrect) {
+                        createExplosion(e.x, e.y, '#00ff00', 18);
+                        playSound(900, 'sine', 0.15, 0.06);
+                        score += 20;
+                        document.getElementById('scoreDisplay').innerText = `Puntos: ${score}`;
+                        if(score > 0 && score % 100 === 0) showLevelUp();
+                        else generateQuestion();
+                    } else {
+                        createExplosion(e.x, e.y, '#ff3333', 18);
+                        playSound(140, 'sawtooth', 0.35, 0.1);
+                        lives--; updateHUD();
+                        if(lives <= 0) endGame();
+                        else generateQuestion();
+                    }
+                    roundEnded = true;
+                    break;
+                }
+            }
+            if(roundEnded) break;
+
+            if(e.y > canvas.height + e.r) {
+                if(e.isCorrect) { 
+                    lives--; updateHUD(); 
+                    if(lives <= 0) endGame();
+                    else generateQuestion(); 
+                }
+                enemies.splice(ei, 1);
+            }
+        }
+
+        for(let pi = powerUps.length - 1; pi >= 0; pi--) {
+            let p = powerUps[pi];
+            p.y += p.v;
+            for(let bi = bullets.length - 1; bi >= 0; bi--) {
+                let b = bullets[bi];
+                if(Math.hypot(p.x - b.x, p.y - b.y) < p.r + 15) {
+                    bullets.splice(bi, 1);
+                    powerUps.splice(pi, 1);
+                    playSound(1300, 'sine', 0.4, 0.1);
+                    if(lives < 5) lives++; updateHUD();
+                    createExplosion(p.x, p.y, '#ffd700', 30);
+                    break;
+                }
+            }
+            if(p && p.y > canvas.height + 60) powerUps.splice(pi, 1);
+        }
+
+        for(let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.x += p.vx; p.y += p.vy; p.a -= 0.025;
+            if(p.a <= 0) particles.splice(i, 1);
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "rgba(255,255,255,0.7)";
+        for(let s of stars) { ctx.beginPath(); ctx.arc(s.x, s.y, s.s, 0, Math.PI*2); ctx.fill(); }
+
+        ctx.fillStyle = "#00ffff";
+        ctx.shadowBlur = 10; ctx.shadowColor = "#00ffff";
+        for(let b of bullets) { ctx.beginPath(); ctx.arc(b.x, b.y, 4.5, 0, Math.PI*2); ctx.fill(); }
+        ctx.shadowBlur = 0;
+
+        // Nave
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.shadowBlur = 15; ctx.shadowColor = "#00ffff";
+        ctx.fillStyle = "#00ffff";
+        ctx.beginPath();
+        ctx.moveTo(0, -32); ctx.lineTo(24, 20); ctx.lineTo(0, 8); ctx.lineTo(-24, 20);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(0, -6, 5, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+
+        // Asteroides
+        for(let e of enemies) {
+            ctx.save();
+            ctx.translate(e.x, e.y);
+            ctx.fillStyle = "#2a2a35"; ctx.strokeStyle = "#00ffff88"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(0, 0, e.r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "white";
+            ctx.font = `bold ${Math.floor(e.r * 0.65)}px Orbitron`;
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(e.val, 0, 0);
+            ctx.restore();
+        }
+
+        for(let p of powerUps) {
+            ctx.save(); ctx.shadowBlur = 20; ctx.shadowColor = "gold";
+            ctx.font = "38px Arial"; ctx.textAlign = "center";
+            ctx.fillText("❤️", p.x, p.y); ctx.restore();
+        }
+
+        for(let p of particles) {
+            ctx.globalAlpha = p.a; ctx.fillStyle = p.c;
+            ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function createExplosion(x, y, color, count = 10) {
+        for(let i=0; i<count; i++) {
+            particles.push({ x, y, vx: (Math.random()-0.5)*12, vy: (Math.random()-0.5)*12, a: 1, c: color });
+        }
+    }
+
+    function updateHUD() {
+        let h = '';
+        for(let i=0; i<Math.min(lives, 5); i++) h += '❤️';
+        if (lives > 5) h += ` +${lives-5}`;
+        document.getElementById('livesDisplay').innerText = `Vidas: ${h}`;
+    }
+
+    function startGame(newGame = true) {
+        initAudio();
+        if(gameLoopId) cancelAnimationFrame(gameLoopId);
+        if (newGame) { score = 0; level = 1; checkpointScore = 0; } 
+        else { score = checkpointScore; }
+        lives = 3; isGameOver = false; isPaused = false;
+        enemies = []; powerUps = []; bullets = []; particles = [];
+        document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+        document.getElementById('scoreDisplay').innerText = `Puntos: ${score}`;
+        document.getElementById('levelDisplay').innerText = `Nivel: ${level}`;
+        updateHUD(); resize(); generateQuestion(); gameLoop();
+    }
+
+    function gameLoop() {
+        update(); draw();
+        if(!isGameOver) gameLoopId = requestAnimationFrame(gameLoop);
+    }
+
+    function endGame() {
+        isGameOver = true;
+        if(gameLoopId) cancelAnimationFrame(gameLoopId);
+        document.getElementById('gameOverScreen').classList.remove('hidden');
+        document.getElementById('gameOverLevel').innerText = `Misión finalizada en Nivel ${level}`;
+        document.getElementById('finalScore').innerText = `Puntaje Final: ${score}`;
+        document.getElementById('questionDisplay').classList.add('hidden');
+        playSound(70, 'sawtooth', 0.6, 0.2);
+    }
+
+    function showLevelUp() {
+        isPaused = true;
+        const screen = document.getElementById('levelUpScreen');
+        const desc = document.getElementById('levelUpDesc');
+        if (level === 1) desc.innerText = "¡Sumas dominadas! Entrando al sector de RESTAS.";
+        else if (level === 2) desc.innerText = "¡Increíble! Preparando sistema para MULTIPLICACIONES.";
+        else desc.innerText = `¡Nivel ${level} superado! La velocidad aumenta.`;
+        screen.classList.remove('hidden');
+        document.getElementById('questionDisplay').classList.add('hidden');
+    }
+
+    function nextLevel() {
+        level++; checkpointScore = score;
+        document.getElementById('levelDisplay').innerText = `Nivel: ${level}`;
+        document.getElementById('levelUpScreen').classList.add('hidden');
+        isPaused = false; generateQuestion();
+    }
+
+    document.getElementById('mainStartBtn').onclick = () => startGame(true);
+    document.getElementById('retryLevelBtn').onclick = () => startGame(false);
+    document.getElementById('newGameBtn').onclick = () => startGame(true);
+    document.getElementById('continueBtn').onclick = () => nextLevel();
+
+</script>
+</body>
+</html>
